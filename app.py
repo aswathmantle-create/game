@@ -1,7 +1,7 @@
 import streamlit as st
 
 # ================== PAGE CONFIG ==================
-st.set_page_config(page_title="Chu & Pa Love Game", page_icon="💘")
+st.set_page_config(page_title="CHUPA", page_icon="💘")
 
 st.title("💘 Chu & Pa: Find Each Other!")
 st.write(
