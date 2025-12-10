@@ -1,123 +1,116 @@
-import io
-import zipfile
-import requests
-from PIL import Image
-import pandas as pd
 import streamlit as st
 
-# ===========================
-# Amazon Image Downloader Web
-# ===========================
+# ========== CONFIG ==========
+st.set_page_config(page_title="Chu & Pa Love Game", page_icon="💘")
 
-st.title("Amazon Image Downloader (Excel → ZIP)")
+st.title("💘 Chu & Pa: Find Each Other!")
 st.write(
-    "Upload an Excel file with columns **sku** and **url**. "
-    "The app will download the images and give you a ZIP file."
+    "Help **Chu** (🧡) find **Pa** (💜). "
+    "Use the arrow buttons to move Chu. When they meet, love wins! 💞"
 )
 
-# ---------- HELPER FUNCTION ----------
+# ========== INIT GAME ==========
+def init_game(grid_size: int = 7):
+    st.session_state.grid_size = grid_size
+    st.session_state.chu_pos = [0, 0]  # bottom-left
+    st.session_state.pa_pos = [grid_size - 1, grid_size - 1]  # top-right
+    st.session_state.moves = 0
+    st.session_state.game_over = False
 
-def download_images_from_excel(uploaded_file):
-    """
-    Takes an uploaded Excel file, reads sku + url,
-    downloads images, and returns a ZIP (as BytesIO).
-    """
-    # Read Excel into DataFrame
-    df = pd.read_excel(uploaded_file)
+if "chu_pos" not in st.session_state:
+    init_game()
 
-    # Normalize column names
-    df.columns = [c.strip().lower() for c in df.columns]
+# ========== SIDEBAR ==========
+st.sidebar.header("Settings")
 
-    if "sku" not in df.columns or "url" not in df.columns:
-        raise ValueError("Excel must contain 'sku' and 'url' columns.")
-
-    # Create an in-memory ZIP file
-    zip_buffer = io.BytesIO()
-
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
-        for idx, row in df.iterrows():
-            sku = str(row["sku"]).strip()
-            url = str(row["url"]).strip()
-
-            if not sku or not url or url.lower() == "nan":
-                continue
-
-            try:
-                # -------- DIRECT IMAGE DOWNLOAD --------
-                resp = requests.get(url, timeout=25)
-                resp.raise_for_status()
-
-                # Guess extension
-                ext = ".jpg"
-                for candidate in [".jpg", ".jpeg", ".png", ".webp"]:
-                    if candidate in url.lower():
-                        ext = candidate
-                        break
-
-                # Open and convert
-                img = Image.open(io.BytesIO(resp.content)).convert("RGB")
-
-                # Resize into 1500x1500 white canvas
-                target = 1500
-                w, h = img.size
-
-                if w > target or h > target:
-                    scale = min(target / w, target / h)
-                    new_w = max(1, int(w * scale))
-                    new_h = max(1, int(h * scale))
-                    img = img.resize((new_w, new_h), Image.LANCZOS)
-                    w, h = img.size
-
-                canvas = Image.new("RGB", (target, target), (255, 255, 255))
-                offset_x = (target - w) // 2
-                offset_y = (target - h) // 2
-                canvas.paste(img, (offset_x, offset_y))
-
-                # Write image
-                img_bytes = io.BytesIO()
-                canvas.save(img_bytes, format="JPEG", quality=95)
-                img_bytes.seek(0)
-
-                # Naming: sku-1, sku-2...
-                base_name = sku
-                counter = 1
-                filename = f"{base_name}-{counter}.jpg"
-                while filename in zipf.namelist():
-                    counter += 1
-                    filename = f"{base_name}-{counter}.jpg"
-
-                zipf.writestr(filename, img_bytes.getvalue())
-
-            except Exception as e:
-                st.write(f"Error downloading for SKU {sku}: {e}")
-                continue
-
-    zip_buffer.seek(0)
-    return zip_buffer
-
-# ---------- STREAMLIT UI ----------
-
-uploaded_file = st.file_uploader(
-    "Upload Excel file (.xlsx)",
-    type=["xlsx"],
-    help="File must have 'sku' and 'url' columns.",
+difficulty = st.sidebar.radio(
+    "Grid Size",
+    options=[5, 7, 9],
+    index=[5, 7, 9].index(st.session_state.get("grid_size", 7)),
+    format_func=lambda x: f"{x} x {x}"
 )
 
-if uploaded_file is not None:
-    st.write("✅ File uploaded.")
-    if st.button("Start Download"):
-        with st.spinner("Downloading images and building ZIP..."):
-            try:
-                zip_buffer = download_images_from_excel(uploaded_file)
-                st.success("Done! Click below to download your images.")
+if difficulty != st.session_state.grid_size:
+    init_game(difficulty)
 
-                st.download_button(
-                    label="Download Images ZIP",
-                    data=zip_buffer.getvalue(),
-                    file_name="images.zip",
-                    mime="application/zip",
-                )
-            except Exception as e:
-                st.error(f"Something went wrong: {e}")
-else:
-    st.info("Please upload an Excel file to continue.")
+if st.sidebar.button("🔁 Reset Game"):
+    init_game(st.session_state.grid_size)
+
+
+# ========== MOVEMENT ==========
+def move_chu(dx: int, dy: int):
+    if st.session_state.game_over:
+        return
+
+    x, y = st.session_state.chu_pos
+    size = st.session_state.grid_size
+
+    new_x = min(max(x + dx, 0), size - 1)
+    new_y = min(max(y + dy, 0), size - 1)
+
+    st.session_state.chu_pos = [new_x, new_y]
+    st.session_state.moves += 1
+
+    # Check win
+    if st.session_state.chu_pos == st.session_state.pa_pos:
+        st.session_state.game_over = True
+        st.success(f"💞 Chu found Pa in {st.session_state.moves} moves!")
+        st.balloons()
+
+
+# ========== CONTROLS ==========
+st.subheader("Controls")
+
+up = st.columns(3)
+left = st.columns(3)
+
+with up[1]:
+    if st.button("⬆️ Up"):
+        move_chu(0, 1)
+
+with left[0]:
+    if st.button("⬅️ Left"):
+        move_chu(-1, 0)
+
+with left[1]:
+    if st.button("⬇️ Down"):
+        move_chu(0, -1)
+
+with left[2]:
+    if st.button("➡️ Right"):
+        move_chu(1, 0)
+
+
+# ========== GRID DISPLAY ==========
+st.subheader("Play Area")
+
+size = st.session_state.grid_size
+chu = st.session_state.chu_pos
+pa = st.session_state.pa_pos
+
+grid = []
+for y in range(size - 1, -1, -1):
+    row = []
+    for x in range(size):
+        if [x, y] == chu and [x, y] == pa:
+            cell = "💘"
+        elif [x, y] == chu:
+            cell = "🧡"
+        elif [x, y] == pa:
+            cell = "💜"
+        else:
+            cell = "⬜"
+        row.append(cell)
+    grid.append(" ".join(row))
+
+for line in grid:
+    st.write(line)
+
+# ========== INFO ==========
+st.markdown("---")
+st.write(f"**Chu position:** {tuple(chu)}")
+st.write(f"**Pa position:** {tuple(pa)}")
+st.write(f"**Moves used:** {st.session_state.moves}")
+
+if st.session_state.game_over:
+    st.info("Click **Reset Game** in the sidebar to play again!")
