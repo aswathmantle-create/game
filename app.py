@@ -1,15 +1,16 @@
 import streamlit as st
 
-# ========== CONFIG ==========
+# ================== PAGE CONFIG ==================
 st.set_page_config(page_title="Chu & Pa Love Game", page_icon="💘")
 
 st.title("💘 Chu & Pa: Find Each Other!")
 st.write(
-    "Help **Chu** (🧡) find **Pa** (💜). "
-    "Use the arrow buttons to move Chu. When they meet, love wins! 💞"
+    "Help **Chu** (🧡) find **Pa** (💜).\n\n"
+    "Click the arrow buttons to move Chu on the grid. "
+    "When Chu reaches Pa, love wins! 💞"
 )
 
-# ========== INIT GAME ==========
+# ================== INIT GAME STATE ==================
 def init_game(grid_size: int = 7):
     st.session_state.grid_size = grid_size
     st.session_state.chu_pos = [0, 0]  # bottom-left
@@ -17,27 +18,32 @@ def init_game(grid_size: int = 7):
     st.session_state.moves = 0
     st.session_state.game_over = False
 
+# First-time setup
 if "chu_pos" not in st.session_state:
     init_game()
 
-# ========== SIDEBAR ==========
+# ================== SIDEBAR SETTINGS ==================
 st.sidebar.header("Settings")
+
+current_grid_size = st.session_state.get("grid_size", 7)
 
 difficulty = st.sidebar.radio(
     "Grid Size",
     options=[5, 7, 9],
-    index=[5, 7, 9].index(st.session_state.get("grid_size", 7)),
-    format_func=lambda x: f"{x} x {x}"
+    index=[5, 7, 9].index(current_grid_size),
+    format_func=lambda x: f"{x} x {x}",
+    key="grid_size_radio",
 )
 
-if difficulty != st.session_state.grid_size:
+# If user changes grid size -> reset game
+if difficulty != current_grid_size:
     init_game(difficulty)
 
-if st.sidebar.button("🔁 Reset Game"):
+# Reset button
+if st.sidebar.button("🔁 Reset Game", key="reset_button"):
     init_game(st.session_state.grid_size)
 
-
-# ========== MOVEMENT ==========
+# ================== MOVEMENT LOGIC ==================
 def move_chu(dx: int, dy: int):
     if st.session_state.game_over:
         return
@@ -51,66 +57,66 @@ def move_chu(dx: int, dy: int):
     st.session_state.chu_pos = [new_x, new_y]
     st.session_state.moves += 1
 
-    # Check win
+    # Check win condition
     if st.session_state.chu_pos == st.session_state.pa_pos:
         st.session_state.game_over = True
         st.success(f"💞 Chu found Pa in {st.session_state.moves} moves!")
         st.balloons()
 
-
-# ========== CONTROLS ==========
+# ================== CONTROLS ==================
 st.subheader("Controls")
 
-up = st.columns(3)
-left = st.columns(3)
-
-with up[1]:
-    if st.button("⬆️ Up"):
+# Up button row
+up_cols = st.columns(3)
+with up_cols[1]:
+    if st.button("⬆️ Up", key="btn_up"):
         move_chu(0, 1)
 
-with left[0]:
-    if st.button("⬅️ Left"):
+# Left / Down / Right row
+mid_cols = st.columns(3)
+with mid_cols[0]:
+    if st.button("⬅️ Left", key="btn_left"):
         move_chu(-1, 0)
 
-with left[1]:
-    if st.button("⬇️ Down"):
+with mid_cols[1]:
+    if st.button("⬇️ Down", key="btn_down"):
         move_chu(0, -1)
 
-with left[2]:
-    if st.button("➡️ Right"):
+with mid_cols[2]:
+    if st.button("➡️ Right", key="btn_right"):
         move_chu(1, 0)
 
-
-# ========== GRID DISPLAY ==========
+# ================== GRID DISPLAY ==================
 st.subheader("Play Area")
 
 size = st.session_state.grid_size
-chu = st.session_state.chu_pos
-pa = st.session_state.pa_pos
+chu_x, chu_y = st.session_state.chu_pos
+pa_x, pa_y = st.session_state.pa_pos
 
-grid = []
-for y in range(size - 1, -1, -1):
-    row = []
+grid_lines = []
+for y in range(size - 1, -1, -1):  # top row first
+    row_cells = []
     for x in range(size):
-        if [x, y] == chu and [x, y] == pa:
+        if [x, y] == st.session_state.chu_pos and [x, y] == st.session_state.pa_pos:
             cell = "💘"
-        elif [x, y] == chu:
-            cell = "🧡"
-        elif [x, y] == pa:
-            cell = "💜"
+        elif [x, y] == st.session_state.chu_pos:
+            cell = "🧡"  # Chu
+        elif [x, y] == st.session_state.pa_pos:
+            cell = "💜"  # Pa
         else:
             cell = "⬜"
-        row.append(cell)
-    grid.append(" ".join(row))
+        row_cells.append(cell)
+    grid_lines.append(" ".join(row_cells))
 
-for line in grid:
+for line in grid_lines:
     st.write(line)
 
-# ========== INFO ==========
+# ================== INFO / DEBUG ==================
 st.markdown("---")
-st.write(f"**Chu position:** {tuple(chu)}")
-st.write(f"**Pa position:** {tuple(pa)}")
+st.write(f"**Chu position:** {tuple(st.session_state.chu_pos)}")
+st.write(f"**Pa position:** {tuple(st.session_state.pa_pos)}")
 st.write(f"**Moves used:** {st.session_state.moves}")
+st.write(f"**Grid size:** {st.session_state.grid_size} x {st.session_state.grid_size}")
 
 if st.session_state.game_over:
-    st.info("Click **Reset Game** in the sidebar to play again!")
+    st.info("Chu & Pa are together! Use **Reset Game** in the sidebar to play again 💘")
