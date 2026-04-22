@@ -1,0 +1,17 @@
+{
+  "name": "noon-plp-scraper",
+  "version": "1.0.0",
+  "description": "Lightweight Noon PLP to PDP scraper with Playwright and Excel export",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "lint": "node --check src/server.js && node --check src/scraper.js",
+    "test": "node --test test/normalization.test.js"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "playwright": "^1.54.2"
+  }
+}

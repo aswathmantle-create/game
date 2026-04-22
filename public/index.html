@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Noon PLP Scraper</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; max-width: 900px; }
+    label { display:block; margin-top: 12px; font-weight: 700; }
+    input { width: 100%; padding: 8px; box-sizing: border-box; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    button { margin-top: 16px; padding: 10px 14px; cursor: pointer; }
+    pre { background: #f4f4f4; padding: 12px; border-radius: 6px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h1>Noon PLP → PDP Scraper</h1>
+  <p>Paste a Noon PLP URL, scrape PDP details, and download Excel output.</p>
+
+  <label for="plpUrl">PLP URL</label>
+  <input id="plpUrl" placeholder="https://www.noon.com/uae-en/..." />
+
+  <div class="row">
+    <div>
+      <label for="maxProducts">Max products</label>
+      <input id="maxProducts" type="number" value="30" min="1" max="200" />
+    </div>
+    <div>
+      <label for="concurrency">Concurrency (1-5)</label>
+      <input id="concurrency" type="number" value="2" min="1" max="5" />
+    </div>
+    <div>
+      <label for="minDelayMs">Min delay (ms)</label>
+      <input id="minDelayMs" type="number" value="1000" min="300" />
+    </div>
+    <div>
+      <label for="maxDelayMs">Max delay (ms)</label>
+      <input id="maxDelayMs" type="number" value="2500" min="500" />
+    </div>
+  </div>
+
+  <button id="startBtn">Start Scrape</button>
+  <p id="status"></p>
+  <div id="download"></div>
+  <pre id="log"></pre>
+
+  <script>
+    const startBtn = document.getElementById('startBtn');
+    const statusEl = document.getElementById('status');
+    const logEl = document.getElementById('log');
+    const downloadEl = document.getElementById('download');
+
+    startBtn.addEventListener('click', async () => {
+      const payload = {
+        plpUrl: document.getElementById('plpUrl').value.trim(),
+        maxProducts: Number(document.getElementById('maxProducts').value),
+        concurrency: Number(document.getElementById('concurrency').value),
+        minDelayMs: Number(document.getElementById('minDelayMs').value),
+        maxDelayMs: Number(document.getElementById('maxDelayMs').value),
+      };
+
+      if (!payload.plpUrl) {
+        alert('Please provide a PLP URL');
+        return;
+      }
+
+      startBtn.disabled = true;
+      statusEl.textContent = 'Scraping in progress...';
+      downloadEl.innerHTML = '';
+      logEl.textContent = '';
+
+      try {
+        const response = await fetch('/api/scrape', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || 'Unknown error');
+        }
+
+        statusEl.textContent = `Done. Scraped ${data.scrapedCount}/${data.plpLinksFound} products.`;
+        downloadEl.innerHTML = `<a href="${data.downloadPath}" download>Download Excel</a>`;
+        logEl.textContent = JSON.stringify({
+          timestamp: data.timestamp,
+          errors: data.errors,
+          sample: data.results.slice(0, 3),
+        }, null, 2);
+      } catch (error) {
+        statusEl.textContent = `Failed: ${error.message}`;
+      } finally {
+        startBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
